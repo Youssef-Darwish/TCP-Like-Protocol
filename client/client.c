@@ -15,16 +15,6 @@
   
 int counter;
 
-struct data_packet get_packet(char *data){
-    
-    struct data_packet packet;
-    packet.seqno = counter;
-    counter++;
-    packet.sent_time = time(NULL);
-    strcpy(packet.data, data);
-    packet.len = sizeof(packet.data);
-    return packet;
-}
 
 
 struct data_packet {
@@ -112,15 +102,16 @@ int main()
         memcpy(net_buf,&packet.seqno,sizeof (packet.seqno));
         memcpy(net_buf+sizeof (packet.seqno),&packet.sent_time,sizeof (packet.sent_time));
         memcpy(net_buf+2*sizeof(int),&packet.data ,sizeof (packet.data));
-        printf("%d",sizeof(net_buf));
+
         sendto(sockfd, net_buf, NET_BUF_SIZE, 
                sendrecvflag, (struct sockaddr*)&addr_con, 
                addrlen); 
   
         printf("\n---------Data Received---------\n"); 
 
-
+        struct ack_packet ack;
         char buff_recv [sizeof(packet)];
+        char buffer [sizeof ( ack)];
         struct data_packet my_packet;
         while (1) { 
             // receive 
@@ -134,12 +125,30 @@ int main()
             memcpy(&my_packet.sent_time,buff_recv +sizeof(int),sizeof(int));
             memcpy(&my_packet.data,buff_recv + 2*sizeof (int)
             ,sizeof(my_packet.data));
-            printf(" seq ,time %d %d\n",my_packet.seqno,my_packet.sent_time);
+            printf("\nseq ,time %d %d\n",my_packet.seqno,my_packet.sent_time);
 
-
-            if (recvFile(buff_recv, NET_BUF_SIZE)) { 
+            if (recvFile(buff_recv+2*sizeof (int), NET_BUF_SIZE)) { 
                 break; 
             } 
+            //clear buffer
+
+
+            clearBuf(buffer);
+            //sending ACK
+            ack.seqno = my_packet.seqno;
+            ack.ackno = my_packet.seqno;
+
+            memcpy(buffer,&ack.seqno,sizeof (ack.seqno));
+            memcpy(buffer+sizeof (ack.seqno),&ack.ackno,sizeof (ack.ackno));
+
+            sendto(sockfd, buffer, 2 * sizeof (ack.ackno), 
+               sendrecvflag, (struct sockaddr*)&addr_con, 
+               addrlen); 
+
+            printf("\n\n Ack Sent : %d\n",ack.ackno);
+
+
+            
         } 
         printf("\n-------------------------------\n"); 
     } 

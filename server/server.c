@@ -1,4 +1,3 @@
-// server code for UDP socket programming 
 #include <arpa/inet.h> 
 #include <netinet/in.h> 
 #include <stdio.h> 
@@ -17,16 +16,6 @@
 int counter;  
 int header_size;
 
-struct data_packet get_packet(char data[]){
-
-    struct data_packet packet;
-    packet.seqno = counter;
-    counter++;
-    packet.sent_time = time(NULL);
-    strcpy(packet.data, data);
-    packet.len = sizeof(packet.data);
-    return packet;
-}
 
 
 
@@ -52,6 +41,17 @@ struct ack_packet {
 
 };
 
+struct data_packet get_packet(char data[]){
+
+    struct data_packet packet;
+    packet.seqno = counter;
+    counter++;
+    packet.sent_time = time(NULL);
+    strcpy(packet.data, data);
+    packet.len = sizeof(packet.data);
+    return packet;
+}
+
 // funtion to clear buffer 
 void clearBuf(char* b) 
 { 
@@ -59,9 +59,7 @@ void clearBuf(char* b)
     for (i = 0; i < NET_BUF_SIZE; i++) 
         b[i] = '\0'; 
 } 
-  
-// funtion to encrypt 
-  
+    
 // funtion sending file 
 int sendFile(FILE* fp, char* buf, int s) 
 { 
@@ -174,6 +172,21 @@ int main()
                 (struct sockaddr*)&addr_con, addrlen); 
             clearBuf(net_buf);
             clearBuf(buff_to_send); 
+            
+            while (1){
+            nBytes = recvfrom(sockfd, net_buf, 
+                          2 * sizeof(int), sendrecvflag, 
+                          (struct sockaddr*)&addr_con, &addrlen);
+            if (nBytes<2 * sizeof(int))
+                continue;
+            memcpy(&ack.seqno,net_buf ,sizeof(int));
+            memcpy(&ack.ackno,net_buf +sizeof(int),sizeof(int));
+            printf("\nAck Received \n");
+            printf("Number : %d\n",ack.ackno);
+
+            clearBuf(net_buf);
+            break;
+            }
         } 
         if (fp != NULL) 
             fclose(fp); 
