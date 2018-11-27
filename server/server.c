@@ -46,13 +46,17 @@ void stop_and_wait(int sock_fd){
     int n, client_len;
     struct sockaddr_in client_addr;
     struct data_packet packet;
+    socklen_t socklen = sizeof(struct sockaddr_in);
 
     memset(&client_addr, 0, sizeof(client_addr));
-    puts("hii");
 
-    n = recvfrom(sock_fd, (char *)buffer, sizeof(buffer), MSG_WAITALL, (struct sockaddr *) &client_addr, &client_len);
-
-    printf("client : %d", n);
+    if(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
+               0, (struct sockaddr *) &client_addr, &socklen) == -1)
+     fprintf(stderr, "recvfrom() failed.\n");
+   else
+   {
+     puts(packet.data);
+   }
 }
 
 int main(int argc, char const *argv[])
@@ -90,16 +94,7 @@ int main(int argc, char const *argv[])
     if(bind(socket_fd, (const struct sockaddr *) &server_addr, sizeof(server_addr)) < 0)
         puts("bind error");
 
-
     stop_and_wait(socket_fd);
-    // char buffer[MAXLEN];
-    // int n;
-    // int client_len;
-
-    // n = recvfrom(socket_fd, (char *)buffer, MAXLEN, MSG_WAITALL, (struct sockaddr *) &client_addr, &client_len);
-    // buffer[n] = '\0';
-
-    // printf("client : %s", buffer);
 
     return 0;
 }
