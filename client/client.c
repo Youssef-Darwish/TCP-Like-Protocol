@@ -6,7 +6,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-
+#include <time.h>
+#include <sys/time.h>
 
 #define MAX_LEN 500
 
@@ -41,7 +42,7 @@ struct data_packet get_packet(char data[]){
 }
 
 void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
-
+    
     counter = rand() %10;
     struct data_packet packet = get_packet(file_name);
     char buff[MAX_LEN];
@@ -62,11 +63,12 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
 
     //while (1) {
         // receive
+        memset (packet.data,0,sizeof(packet.data));
         while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                    0, (struct sockaddr *) &addr_con, &socklen) > 0){
-                        fputs(packet.data, file);
+                    fputs(packet.data,file);
                    }
-                puts(packet.data);
+                puts("end");
     //}
 
 }
@@ -98,6 +100,12 @@ int main(int argc, char const *argv[])
     int socket_fd = socket(AF_INET,SOCK_DGRAM, 0);
     if (socket_fd <0)
         puts("error");
+
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+
+    setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
 
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));

@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <time.h>
 
 #define MAX_LEN 500
 
