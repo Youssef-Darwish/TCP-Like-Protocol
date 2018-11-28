@@ -44,17 +44,26 @@ struct data_packet get_packet(char data[]){
 void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
     
     counter = rand() %10;
+    printf("intial counter : %d\n",counter);
     struct data_packet packet = get_packet(file_name);
     char buff[MAX_LEN];
     socklen_t socklen = sizeof(addr_con);
-
+    struct ack_packet ack_pack;
     if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
              (struct sockaddr *) &addr_con, socklen) == -1)
     {
         fprintf(stderr, "send() failed.\n");
         return;
     }
+    //ACK :
 
+    // if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
+    //         0, (struct sockaddr *) &addr_con, &socklen) == -1){
+    //     fprintf(stderr, "receiving ACK failed.\n");
+    // }
+    // printf("ack # rec : %d\n",ack_pack.seqno);
+
+    puts("file name sent\n");
     FILE *file = fopen(file_name, "w");
     if (file == NULL) {
         fprintf(stderr, "File not found\n");
@@ -63,13 +72,28 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
 
     //while (1) {
         // receive
-        memset (packet.data,0,sizeof(packet.data));
-        while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
-                   0, (struct sockaddr *) &addr_con, &socklen) > 0){
-                    fputs(packet.data,file);
-                   }
-                puts("end");
-    //}
+    memset (packet.data,0,sizeof(packet.data));
+
+    while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
+                0, (struct sockaddr *) &addr_con, &socklen) > 0){
+                
+        ack_pack.seqno = packet.seqno+1;
+        ack_pack.sent_time = time(NULL);
+
+        if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
+        (struct sockaddr *) &addr_con, socklen) == -1){
+        
+            fprintf(stderr, "sending acK failed failed.\n");
+            return;
+        }
+        else {
+            printf("Ack # %d sent\n",ack_pack.seqno);
+        }
+                    
+        fputs(packet.data,file);
+    }
+    puts("end");
+//}
 
 }
 
@@ -102,7 +126,7 @@ int main(int argc, char const *argv[])
         puts("error");
 
     struct timeval timeout;
-    timeout.tv_sec = 5;
+    timeout.tv_sec = 7;
     timeout.tv_usec = 0;
 
     setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
