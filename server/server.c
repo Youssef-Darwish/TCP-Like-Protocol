@@ -7,7 +7,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAXLEN 100
+#define MAX_LEN 500
+
+#ifndef min
+#define min(a, b)            (((a) < (b)) ? (a) : (b))
+#endif
 
 int counter;
 struct data_packet {
@@ -41,22 +45,50 @@ struct data_packet get_packet(char data[]){
     return packet;
 }
 
-void stop_and_wait(int sock_fd){
-    char buffer[MAXLEN];
+void start(int sock_fd){
+    char buffer[MAX_LEN];
     int n, client_len;
     struct sockaddr_in client_addr;
     struct data_packet packet;
     socklen_t socklen = sizeof(struct sockaddr_in);
 
-    memset(&client_addr, 0, sizeof(client_addr));
+    while(1) {
+        memset(&client_addr, 0, sizeof(client_addr));
+        if(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
+                   0, (struct sockaddr *) &client_addr, &socklen) == -1){
+                        fprintf(stderr, "recvfrom() failed.\n");
+                        return;
+                   }
 
-    if(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
-               0, (struct sockaddr *) &client_addr, &socklen) == -1)
-     fprintf(stderr, "recvfrom() failed.\n");
-   else
-   {
-     puts(packet.data);
-   }
+        int pid = fork();
+        char *file_name = packet.data;
+        char buffer[500];
+
+        if (pid == 0) {
+            FILE *file = fopen(file_name, "r");
+            if (file == NULL) {
+                fprintf(stderr, "File not found\n");
+                return;
+            }
+
+            fseek(file, 0L, SEEK_END);
+            long fsize = ftell(file);
+            fseek(file, 0L, SEEK_SET);
+
+            while (fsize && fread(buffer, sizeof(char), min(MAX_LEN, fsize), file) > 0){
+                struct data_packet packet;
+                packet = get_packet(buffer);
+
+                if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
+                        (struct sockaddr *) &client_addr, socklen) == -1)
+                    {
+                        fprintf(stderr, "sending packet failed.\n");
+                    }
+                fsize -= min(fsize, MAX_LEN);
+                memset(&buffer, 0, sizeof(buffer));
+            }
+        }
+    }
 }
 
 int main(int argc, char const *argv[])
@@ -94,7 +126,8 @@ int main(int argc, char const *argv[])
     if(bind(socket_fd, (const struct sockaddr *) &server_addr, sizeof(server_addr)) < 0)
         puts("bind error");
 
-    stop_and_wait(socket_fd);
+
+    start(socket_fd);
 
     return 0;
 }

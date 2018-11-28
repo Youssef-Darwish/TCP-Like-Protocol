@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 
-#define MAXLEN 100
+#define MAX_LEN 500
 
 int counter;
 struct data_packet {
@@ -44,31 +44,30 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
 
     counter = rand() %10;
     struct data_packet packet = get_packet(file_name);
-    char buff[MAXLEN];
+    char buff[MAX_LEN];
     socklen_t socklen = sizeof(addr_con);
 
     if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
              (struct sockaddr *) &addr_con, socklen) == -1)
-   {
-     fprintf(stderr, "send() failed.\n");
+    {
+        fprintf(stderr, "send() failed.\n");
+        return;
+    }
 
-      return;
-  }
+    FILE *file = fopen(file_name, "w");
+    if (file == NULL) {
+        fprintf(stderr, "File not found\n");
+        return;
+    }
 
-    // while (1) {
-    //     // receive
-    //     nBytes = recvfrom(sockfd, net_buf, NET_BUF_SIZE,
-    //                         sendrecvflag, (struct sockaddr*)&addr_con,
-    //                         &addrlen);
-
-    //     // process
-    //     if (recvFile(net_buf, NET_BUF_SIZE)) {
-    //         break;
-    //     }
-    // }
-    // printf("\n-------------------------------\n");
-
-
+    //while (1) {
+        // receive
+        while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
+                   0, (struct sockaddr *) &addr_con, &socklen) > 0){
+                        fputs(packet.data, file);
+                   }
+                puts(packet.data);
+    //}
 
 }
 
