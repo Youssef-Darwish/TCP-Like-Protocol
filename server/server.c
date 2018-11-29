@@ -46,84 +46,98 @@ struct data_packet get_packet(char data[]){
     return packet;
 }
 
-void start(int sock_fd){
+void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd){
     char buffer[MAX_LEN];
-    int n, client_len;
-    struct sockaddr_in client_addr;
-    struct data_packet packet;
-    struct ack_packet ack_pack;
+     int client_len;
+    socklen_t socklen = sizeof(struct sockaddr_in);
+
+    FILE *file = fopen(file_name, "r");
+    if (file == NULL) {
+        fprintf(stderr, "File not found\n");
+        return;
+    }
+
+    fseek(file, 0L, SEEK_END);
+    long fsize = ftell(file);
+    fseek(file, 0L, SEEK_SET);
+    memset(&buffer, 0, sizeof(buffer));
+
+    while (fsize && fread(buffer, sizeof(char), min(MAX_LEN, fsize), file) > 0){
+        struct data_packet packet;
+        struct ack_packet ack_pack;
+        packet = get_packet(buffer);
+        packet.len = min(MAX_LEN, fsize);
+
+        //printf(" counter : %d\n",counter);
+        while (1){
+            if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
+                    (struct sockaddr *) &client_addr, socklen) == -1)
+                {
+                    fprintf(stderr, "sending packet failed.\n");
+                }
+            puts("waiting for ack");
+            if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
+                    0, (struct sockaddr *) &client_addr, &socklen) == -1)
+                {
+                    fprintf(stderr, "receiving ACK failed.\n");
+                }
+            printf("packet # : %d\n", packet.seqno);
+            printf("ack # rec : %d\n", ack_pack.seqno);
+            if (ack_pack.seqno == packet.seqno + 1){
+                printf("Ack #%d received\n", ack_pack.seqno);
+                break;
+            }
+            puts("resending the packet\n");
+        }
+        fsize -= min(fsize, MAX_LEN);
+        memset(&buffer, 0, sizeof(buffer));
+    }
+}
+
+void start(int sock_fd){
+    int client_len;
     socklen_t socklen = sizeof(struct sockaddr_in);
 
     while(1) {
-        memset(&client_addr, 0, sizeof(client_addr));
+        struct data_packet packet;
+        struct sockaddr_in client_addr;
+    //    memset(&client_addr, 0, sizeof(client_addr));
+    //    memset(&packet, 0, sizeof(packet));
         if(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                    0, (struct sockaddr *) &client_addr, &socklen) == -1){
                         fprintf(stderr, "recvfrom() failed.\n");
                         return;
                    }
+        // printf("%d\n", n);
+        // if(strcmp(packet.data, "") == 0){
+        //     puts("packet empty");
+        //     continue;
+        // }
+        puts("start");
         //TODO : send ack to client
         int pid = fork();
-        char *file_name = packet.data;
-        char buffer[500];
-        counter = packet.seqno;
-        
+
         if (pid == 0) {
-            printf("Initial counter : %d\n",counter);
-            // ack_pack.seqno = packet.seqno+1;
-            // ack_pack.sent_time = time(NULL);
-            // printf("Initial ACK : %d\n",ack_pack.seqno);
+            char *file_name = packet.data;
+            struct ack_packet ack_pack;
 
-            // if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
-            //         (struct sockaddr *) &client_addr, socklen) == -1){
-            
-            //     fprintf(stderr, "sending acK failed failed.\n");
-            //     return;
-            // }
-            // else {
+            //ack_pack.seqno = packet.seqno + 1;
+            //ack_pack.sent_time = time(NULL);
+            //printf("Initial ACK : %d\n",ack_pack.seqno);
+
+            //if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
+                    // (struct sockaddr *) &client_addr, socklen) == -1){
+                    //     fprintf(stderr, "sending acK failed failed.\n");
+                    //     return;
+            // } else {
             //     printf("Ack # %d sent\n",ack_pack.seqno);
-            // }
+            //}
 
-            FILE *file = fopen(file_name, "r");
-            if (file == NULL) {
-                fprintf(stderr, "File not found\n");
-                return;
-            }
-            //counter =0 for now
-            fseek(file, 0L, SEEK_END);
-            long fsize = ftell(file);
-            fseek(file, 0L, SEEK_SET);
-
-            while (fsize && fread(buffer, sizeof(char), min(MAX_LEN, fsize), file) > 0){
-                struct data_packet packet;
-                packet = get_packet(buffer);
-                packet.seqno = counter;
-                counter++;
-                packet.len = min(MAX_LEN, fsize);
-                
-                printf(" counter : %d\n",counter);
-                while (1){
-                    if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
-                            (struct sockaddr *) &client_addr, socklen) == -1)
-                        {
-                            fprintf(stderr, "sending packet failed.\n");
-                        }
-                    if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
-                            0, (struct sockaddr *) &client_addr, &socklen) == -1){
-                        fprintf(stderr, "receiving ACK failed.\n");
-                    }
-                    // printf("ack # rec : %d\n",ack_pack.seqno);
-                    if (ack_pack.seqno == packet.seqno+1){
-                        printf("Ack #%d received\n",ack_pack.seqno);
-                        break;
-                    }
-                    puts("resending the packet\n");
-                }
-                fsize -= min(fsize, MAX_LEN);
-                memset(&buffer, 0, sizeof(buffer));
-            }
+            stop_and_wait(file_name, client_addr, sock_fd);
         }
     }
 }
+
 
 int main(int argc, char const *argv[])
 {
@@ -133,9 +147,9 @@ int main(int argc, char const *argv[])
         return 0;
     }
 
-    struct timeval timeout;
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
+  //  struct timeval timeout;
+   // timeout.tv_sec = 5;
+  //  timeout.tv_usec = 0;
 
     int server_port_no;
     int window_size;

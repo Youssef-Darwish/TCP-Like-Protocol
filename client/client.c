@@ -42,12 +42,13 @@ struct data_packet get_packet(char data[]){
 }
 
 void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
-    
+
     counter = rand() %10;
     printf("intial counter : %d\n",counter);
     struct data_packet packet = get_packet(file_name);
     char buff[MAX_LEN];
     socklen_t socklen = sizeof(addr_con);
+    int len;
     struct ack_packet ack_pack;
     if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
              (struct sockaddr *) &addr_con, socklen) == -1)
@@ -75,21 +76,21 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
     memset (packet.data,0,sizeof(packet.data));
 
     while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
-                0, (struct sockaddr *) &addr_con, &socklen) > 0){
-                
+                0, (struct sockaddr *) &addr_con, &len) > 0){
+        puts("I am here");
         ack_pack.seqno = packet.seqno+1;
         ack_pack.sent_time = time(NULL);
 
         if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
         (struct sockaddr *) &addr_con, socklen) == -1){
-        
+
             fprintf(stderr, "sending acK failed failed.\n");
             return;
         }
         else {
             printf("Ack # %d sent\n",ack_pack.seqno);
         }
-                    
+
         fputs(packet.data,file);
     }
     puts("end");
@@ -126,10 +127,10 @@ int main(int argc, char const *argv[])
         puts("error");
 
     struct timeval timeout;
-    timeout.tv_sec = 7;
+    timeout.tv_sec = 30;
     timeout.tv_usec = 0;
 
-    setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
+  //  setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
 
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
