@@ -97,43 +97,35 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
 void start(int sock_fd){
     int client_len;
     socklen_t socklen = sizeof(struct sockaddr_in);
+    struct data_packet packet;
+    struct sockaddr_in client_addr;
 
     while(1) {
-        struct data_packet packet;
-        struct sockaddr_in client_addr;
-    //    memset(&client_addr, 0, sizeof(client_addr));
-    //    memset(&packet, 0, sizeof(packet));
         if(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                    0, (struct sockaddr *) &client_addr, &socklen) == -1){
                         fprintf(stderr, "recvfrom() failed.\n");
                         return;
                    }
-        // printf("%d\n", n);
-        // if(strcmp(packet.data, "") == 0){
-        //     puts("packet empty");
-        //     continue;
-        // }
-        puts("start");
-        //TODO : send ack to client
+
+        struct ack_packet ack_pack;
+        ack_pack.seqno = packet.seqno + 1;
+        ack_pack.sent_time = time(NULL);
+
         int pid = fork();
 
         if (pid == 0) {
             char *file_name = packet.data;
-            struct ack_packet ack_pack;
+            int child_socket_fd = socket(AF_INET,SOCK_DGRAM, 0);
 
-            //ack_pack.seqno = packet.seqno + 1;
-            //ack_pack.sent_time = time(NULL);
-            //printf("Initial ACK : %d\n",ack_pack.seqno);
+            if(sendto(child_socket_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
+                    (struct sockaddr *) &client_addr, socklen) == -1){
+                        fprintf(stderr, "sending acK failed failed.\n");
+                        return;
+            } else {
+                printf("Ack # %d sent\n",ack_pack.seqno);
+            }
 
-            //if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
-                    // (struct sockaddr *) &client_addr, socklen) == -1){
-                    //     fprintf(stderr, "sending acK failed failed.\n");
-                    //     return;
-            // } else {
-            //     printf("Ack # %d sent\n",ack_pack.seqno);
-            //}
-
-            stop_and_wait(file_name, client_addr, sock_fd);
+            stop_and_wait(file_name, client_addr, child_socket_fd);
         }
     }
 }

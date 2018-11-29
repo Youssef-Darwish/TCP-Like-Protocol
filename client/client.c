@@ -56,13 +56,12 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
         fprintf(stderr, "send() failed.\n");
         return;
     }
-    //ACK :
 
-    // if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
-    //         0, (struct sockaddr *) &addr_con, &socklen) == -1){
-    //     fprintf(stderr, "receiving ACK failed.\n");
-    // }
-    // printf("ack # rec : %d\n",ack_pack.seqno);
+    if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(ack_pack),
+            0, (struct sockaddr *) &addr_con, &socklen) == -1){
+        fprintf(stderr, "receiving ACK failed.\n");
+    }
+    printf("ack # rec : %d\n",ack_pack.seqno);
 
     puts("file name sent\n");
     FILE *file = fopen(file_name, "w");
@@ -71,18 +70,16 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
         return;
     }
 
-    //while (1) {
-        // receive
     memset (packet.data,0,sizeof(packet.data));
 
     while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                 0, (struct sockaddr *) &addr_con, &len) > 0){
         puts("I am here");
-        ack_pack.seqno = packet.seqno+1;
+        ack_pack.seqno = packet.seqno + 1;
         ack_pack.sent_time = time(NULL);
 
         if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
-        (struct sockaddr *) &addr_con, socklen) == -1){
+        (struct sockaddr *) &addr_con, len) == -1){
 
             fprintf(stderr, "sending acK failed failed.\n");
             return;
@@ -92,9 +89,8 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
         }
 
         fputs(packet.data,file);
-    }
+     }
     puts("end");
-//}
 
 }
 
@@ -127,10 +123,10 @@ int main(int argc, char const *argv[])
         puts("error");
 
     struct timeval timeout;
-    timeout.tv_sec = 30;
+    timeout.tv_sec = 7;
     timeout.tv_usec = 0;
 
-  //  setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
+    setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
 
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
