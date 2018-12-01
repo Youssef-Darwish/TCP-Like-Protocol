@@ -71,6 +71,7 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
     }
 
     memset (packet.data,0,sizeof(packet.data));
+    int flag = 0;
 
     while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                 0, (struct sockaddr *) &addr_con, &len) > 0){

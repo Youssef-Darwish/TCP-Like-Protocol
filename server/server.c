@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
+#include <fcntl.h>
 
 #define MAX_LEN 500
 
@@ -23,7 +24,7 @@ struct data_packet {
     uint32_t seqno;
     time_t sent_time;
     /* Data */
-    char data[500]; /* Not always 500 bytes, can be less */
+    char data[501]; /* Not always 500 bytes, can be less */
 };
 
 
@@ -46,6 +47,10 @@ struct data_packet get_packet(char data[]){
     return packet;
 }
 
+int get_timeout() {
+    return 5;
+}
+
 void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd){
     char buffer[MAX_LEN];
      int client_len;
@@ -65,29 +70,38 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
     while (fsize && fread(buffer, sizeof(char), min(MAX_LEN, fsize), file) > 0){
         struct data_packet packet;
         struct ack_packet ack_pack;
+        ack_pack.seqno = -1;
         packet = get_packet(buffer);
         packet.len = min(MAX_LEN, fsize);
+        packet.data[packet.len] = '\0';
 
-        //printf(" counter : %d\n",counter);
-        while (1){
+        int repeat = 1;
+        while (repeat){
             if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
                     (struct sockaddr *) &client_addr, socklen) == -1)
                 {
                     fprintf(stderr, "sending packet failed.\n");
                 }
             puts("waiting for ack");
+
             if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
                     0, (struct sockaddr *) &client_addr, &socklen) == -1)
                 {
                     fprintf(stderr, "receiving ACK failed.\n");
                 }
+
+            if (ack_pack.seqno == -1){
+                puts("Packet is lost.. Resending");
+                continue;
+            } else
+                repeat = 0;
+
             printf("packet # : %d\n", packet.seqno);
             printf("ack # rec : %d\n", ack_pack.seqno);
             if (ack_pack.seqno == packet.seqno + 1){
                 printf("Ack #%d received\n", ack_pack.seqno);
                 break;
             }
-            puts("resending the packet\n");
         }
         fsize -= min(fsize, MAX_LEN);
         memset(&buffer, 0, sizeof(buffer));
@@ -125,6 +139,14 @@ void start(int sock_fd){
                 printf("Ack # %d sent\n",ack_pack.seqno);
             }
 
+            struct timeval timeout;
+            timeout.tv_sec = 10;
+            timeout.tv_usec = 0;
+
+            setsockopt(child_socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char *) &timeout, sizeof (timeout));
+            //int flags = fcntl(child_socket_fd, F_GETFL);
+            //fcntl(child_socket_fd, F_SETFL, flags | O_NONBLOCK);
+
             stop_and_wait(file_name, client_addr, child_socket_fd);
         }
     }
@@ -138,10 +160,6 @@ int main(int argc, char const *argv[])
         fprintf(stderr, "Error opening file\n");
         return 0;
     }
-
-  //  struct timeval timeout;
-   // timeout.tv_sec = 5;
-  //  timeout.tv_usec = 0;
 
     int server_port_no;
     int window_size;
@@ -160,7 +178,6 @@ int main(int argc, char const *argv[])
     if (socket_fd <0)
         puts("error");
 
-    // setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
