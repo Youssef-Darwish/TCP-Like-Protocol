@@ -48,7 +48,7 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
     struct data_packet packet = get_packet(file_name);
     char buff[MAX_LEN];
     socklen_t socklen = sizeof(addr_con);
-    int len;
+    socklen_t len;
     struct ack_packet ack_pack;
     if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
              (struct sockaddr *) &addr_con, socklen) == -1)
