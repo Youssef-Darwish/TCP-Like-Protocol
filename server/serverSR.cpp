@@ -13,6 +13,8 @@
 #include <fstream>
 #include <math.h>
 #include <vector>
+#include <algorithm>
+
 
 using namespace std;
 
@@ -39,6 +41,11 @@ struct data_packet {
     /* Data */
     char data[501]; /* Not always 500 bytes, can be less */
 };
+
+struct info_packet {
+    int packets_to_send;
+};
+
 vector <data_packet> packets; //all packets read from file
 
 struct ack_packet {
@@ -95,6 +102,7 @@ void choose_random_packets() {
         pack_to_insert = rand() % size;
         random_packets_lost.push_back(pack_to_insert);
     }
+    sort(random_packets_lost.begin(),random_packets_lost.end());
     showlist(random_packets_lost);
 
 }
@@ -164,54 +172,71 @@ void start(int sock_fd){
     //selective_repeat(file_name, client_addr, sock_fd);
 }
 
-void selective_repeat(char file_name[], struct sockaddr_in client_addr, int sock_fd, socklen_t socklen) {
+void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t socklen) {
 
     int total_size = packets.size();
-    int current_packet =0;
-    
+    int number_of_acks = 0;
     // get N0
     int max_packets_without_loss = number_of_packets_without_loss[0];
     number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
-    while(1){
+    
+    info_packet info;
+    while(!packets.empty()){
         
-        
-        for (int index = 0; index <cwnd ;index++,current_packet++) {
-            data_packet pack = packets[current_packet];
+        info.packets_to_send = cwnd - number_of_acks;
+        if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
+            (struct sockaddr *) &client_addr, socklen) == -1){
+                fprintf(stderr, "sending info failed failed.\n");
+                return;
+        } else {
+            printf("info sent , packets to sent : # %d sent\n",info.packets_to_send);
+        }
 
-            if (current_packet > max_packets_without_loss){
-                    //TODO 
+        for (int index = 0; index < cwnd - number_of_acks; index++) {
+            packets[index].sent_time = time(NULL);
+            data_packet pack = packets[index];
+
+            // If packet is in random lost packets, don't send
+            if(find(random_packets_lost.begin,random_packets_lost.end,pack.seqno)){
+                continue;
             }
             if(sendto(sock_fd, (const void *) &pack, sizeof(struct data_packet), 0,
             (struct sockaddr *) &client_addr, socklen) == -1){
-                fprintf(stderr, "sending acK failed failed.\n");
+                fprintf(stderr, "sending packet failed .\n");
                 return;
             } else {
                 printf("Packet # %d sent\n",pack.seqno);
             }
-
         }
 
-       // while(1)
-       //send 2 packets
-        // recv first packet ack 
-        // double size -> 5
+        struct ack_packet ack_pack;
+        if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
+            0, (struct sockaddr *) &client_addr, &socklen) == -1)
+        {
+            fprintf(stderr, "receiving ACK failed.\n");
+        }
+        else {
+            // if acked packet is the base , remove it from window
+            if(ack_pack.seqno == packets[0].seqno){
+                packets.erase(packets.begin());
+            }
+        }
+        number_of_acks++;
+        
+        //TODO , simulate timeout given in file by N0,N1 ...etc
+        if (number_of_acks > max_packets_without_loss){
+            set_window_size(4);
+            number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
+            max_packets_without_loss = number_of_packets_without_loss[0];
+        }
 
-
+        // check timeouts : default for now : 5 sec
+        if (time (NULL) - packets[0].sent_time>5){
+            set_window_size(3);
+            random_packets_lost.erase(random_packets_lost.begin());
+            number_of_acks = 0;
+        }
     }
-
-
-/*
-while !EOF
-
-    while (index < window_size)
-        send ()
-    receive()
-
-    update_window_size()
-
-//timeout
-*/
-
 }
 
 
