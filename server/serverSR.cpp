@@ -87,10 +87,10 @@ void set_window_size(int state){
 
 void showlist(vector <int> vec)
 {
-    
+
     for (int i=0;i<vec.size();i++){
         cout << vec[i]<<endl;
-    }    
+    }
 }
 
 void choose_random_packets() {
@@ -139,7 +139,7 @@ void setup_lists(string file_name){
     while(input >> num_of_packets){
         number_of_packets_without_loss.push_back(num_of_packets);
     }
-    
+
 }
 
 void start(int sock_fd){
@@ -174,15 +174,15 @@ void start(int sock_fd){
 
 void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t socklen) {
 
-    int total_size = packets.size();
+    int ee = packets.size();
     int number_of_acks = 0;
     // get N0
     int max_packets_without_loss = number_of_packets_without_loss[0];
     number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
-    
+
     info_packet info;
     while(!packets.empty()){
-        
+        //it should be cwnd - number of unacked
         info.packets_to_send = cwnd - number_of_acks;
         if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
             (struct sockaddr *) &client_addr, socklen) == -1){
@@ -197,7 +197,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
             data_packet pack = packets[index];
 
             // If packet is in random lost packets, don't send
-            if(find(random_packets_lost.begin,random_packets_lost.end,pack.seqno)){
+            if(find(random_packets_lost.begin,random_packets_lost.end, pack.seqno)){
                 continue;
             }
             if(sendto(sock_fd, (const void *) &pack, sizeof(struct data_packet), 0,
@@ -217,12 +217,12 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
         }
         else {
             // if acked packet is the base , remove it from window
-            if(ack_pack.seqno == packets[0].seqno){
+            if(ack_pack.seqno == packets[0].seqno + 1){
                 packets.erase(packets.begin());
             }
         }
         number_of_acks++;
-        
+
         //TODO , simulate timeout given in file by N0,N1 ...etc
         if (number_of_acks > max_packets_without_loss){
             set_window_size(4);
@@ -231,7 +231,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
         }
 
         // check timeouts : default for now : 5 sec
-        if (time (NULL) - packets[0].sent_time>5){
+        if (find(random_packets_lost.begin,random_packets_lost.end, packets[0].seqno) && time (NULL) - packets[0].sent_time > 5){
             set_window_size(3);
             random_packets_lost.erase(random_packets_lost.begin());
             number_of_acks = 0;
