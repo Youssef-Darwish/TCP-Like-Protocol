@@ -9,6 +9,10 @@
 #include <sys/time.h>
 #include <time.h>
 #include <list>
+#include <iostream>
+#include <fstream>
+#include <math.h>
+#include <vector>
 
 using namespace std;
 
@@ -23,8 +27,8 @@ int counter; //used to assign sequence number
 int cwnd; //window size
 float loss_percent;
 int random_generator_seed;
-list <int> number_of_packets_without_loss; //N0 N1 N2 ...
-list <int> random_packets_lost; //all packets that will be lost
+vector <int> number_of_packets_without_loss; //N0 N1 N2 ...
+vector <int> random_packets_lost; //all packets that will be lost
 
 struct data_packet {
     /* Header */
@@ -35,7 +39,7 @@ struct data_packet {
     /* Data */
     char data[501]; /* Not always 500 bytes, can be less */
 };
-list <data_packet> packets; //all packets read from file
+vector <data_packet> packets; //all packets read from file
 
 struct ack_packet {
     /* Header */
@@ -74,9 +78,30 @@ void set_window_size(int state){
     }
 }
 
-void setup_lists(char file_name[]){
+void showlist(vector <int> vec)
+{
+    
+    for (int i=0;i<vec.size();i++){
+        cout << vec[i]<<endl;
+    }    
+}
+
+void choose_random_packets() {
+    int size = packets.size();
+    int number_of_losses = ceil(size * loss_percent);
+    int pack_to_insert;
+    srand(random_generator_seed);
+    for(int i = 0; i < number_of_losses; i++){
+        pack_to_insert = rand() % size;
+        random_packets_lost.push_back(pack_to_insert);
+    }
+    showlist(random_packets_lost);
+
+}
+
+void setup_lists(string file_name){
     char buffer[MAX_LEN];
-    FILE *file = fopen(file_name, "r");
+    FILE *file = fopen(file_name.c_str(), "r");
     if (file == NULL) {
         fprintf(stderr, "File not found\n");
         return;
@@ -93,22 +118,21 @@ void setup_lists(char file_name[]){
         packet.len = min(MAX_LEN, fsize);
         packet.data[packet.len] = '\0';
 
-      //  packets.push_back(packet);
+        packets.push_back(packet);
 
         fsize -= min(fsize, MAX_LEN);
         memset(&buffer, 0, sizeof(buffer));
     }
-   // showlist(packets);
 
+    choose_random_packets();
+    file_name = "threeDupAcks.txt";     // TODO : read_it from input file
+    fstream input(file_name.c_str());
+    int num_of_packets;
+    while(input >> num_of_packets){
+        number_of_packets_without_loss.push_back(num_of_packets);
+    }
+    
 }
-
-// void showlist(list <data_packet> g)
-// {
-//     list <int> :: iterator it;
-//     for(it = g.begin(); it != g.end(); ++it)
-//         puts((*it).data);
-// }
-
 
 void start(int sock_fd){
     int client_len;
@@ -140,9 +164,53 @@ void start(int sock_fd){
     //selective_repeat(file_name, client_addr, sock_fd);
 }
 
-void selective_repeat(char file_name[], struct sockaddr_in client_addr, int sock_fd) {
+void selective_repeat(char file_name[], struct sockaddr_in client_addr, int sock_fd, socklen_t socklen) {
+
+    int total_size = packets.size();
+    int current_packet =0;
+    
+    // get N0
+    int max_packets_without_loss = number_of_packets_without_loss[0];
+    number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
+    while(1){
+        
+        
+        for (int index = 0; index <cwnd ;index++,current_packet++) {
+            data_packet pack = packets[current_packet];
+
+            if (current_packet > max_packets_without_loss){
+                    //TODO 
+            }
+            if(sendto(sock_fd, (const void *) &pack, sizeof(struct data_packet), 0,
+            (struct sockaddr *) &client_addr, socklen) == -1){
+                fprintf(stderr, "sending acK failed failed.\n");
+                return;
+            } else {
+                printf("Packet # %d sent\n",pack.seqno);
+            }
+
+        }
+
+       // while(1)
+       //send 2 packets
+        // recv first packet ack 
+        // double size -> 5
 
 
+    }
+
+
+/*
+while !EOF
+
+    while (index < window_size)
+        send ()
+    receive()
+
+    update_window_size()
+
+//timeout
+*/
 
 }
 
