@@ -32,6 +32,7 @@ int random_generator_seed;
 vector <int> number_of_packets_without_loss; //N0 N1 N2 ...
 vector <int> random_packets_lost; //all packets that will be lost
 
+void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t socklen);
 struct data_packet {
     /* Header */
     uint16_t cksum; /* Optional bonus part */
@@ -97,12 +98,13 @@ void choose_random_packets() {
     int size = packets.size();
     int number_of_losses = ceil(size * loss_percent);
     int pack_to_insert;
-    srand(random_generator_seed);
+    srand(random_generator_seed+1);
     for(int i = 0; i < number_of_losses; i++){
         pack_to_insert = rand() % size;
         random_packets_lost.push_back(pack_to_insert);
     }
     sort(random_packets_lost.begin(),random_packets_lost.end());
+    cout << "random packets : \n";
     showlist(random_packets_lost);
 
 }
@@ -139,7 +141,7 @@ void setup_lists(string file_name){
     while(input >> num_of_packets){
         number_of_packets_without_loss.push_back(num_of_packets);
     }
-
+    cout << "total_number_of_packets " << packets.size()<< '\n';
 }
 
 void start(int sock_fd){
@@ -169,13 +171,14 @@ void start(int sock_fd){
     }
 
     setup_lists(file_name);
-    //selective_repeat(file_name, client_addr, sock_fd);
+    selective_repeat(client_addr, sock_fd,socklen);
 }
 
 void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t socklen) {
 
-    int ee = packets.size();
     int number_of_acks = 0;
+    int old_cwnd = cwnd;
+    int send_index = 0;
     // get N0
     int max_packets_without_loss = number_of_packets_without_loss[0];
     number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
@@ -183,21 +186,32 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
     info_packet info;
     while(!packets.empty()){
         //it should be cwnd - number of unacked
-        info.packets_to_send = cwnd - number_of_acks;
+
+        if (cwnd == old_cwnd){
+            info.packets_to_send = cwnd;
+        }
+        else {
+            cout << "old window :" << old_cwnd << "# acks" << number_of_acks <<endl;
+            info.packets_to_send = cwnd - send_index;
+        }
+
         if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
             (struct sockaddr *) &client_addr, socklen) == -1){
-                fprintf(stderr, "sending info failed failed.\n");
+                fprintf(stderr, "sending info failed .\n");
                 return;
         } else {
             printf("info sent , packets to sent : # %d sent\n",info.packets_to_send);
         }
 
-        for (int index = 0; index < cwnd - number_of_acks; index++) {
-            packets[index].sent_time = time(NULL);
-            data_packet pack = packets[index];
 
+        for (int i = 0; i < info.packets_to_send; i++) {
+            
+            packets[send_index].sent_time = time(NULL);
+            data_packet pack = packets[send_index];
+            
             // If packet is in random lost packets, don't send
-            if(find(random_packets_lost.begin,random_packets_lost.end, pack.seqno)){
+            
+            if(find(random_packets_lost.begin(),random_packets_lost.end(), pack.seqno)!=random_packets_lost.end()){
                 continue;
             }
             if(sendto(sock_fd, (const void *) &pack, sizeof(struct data_packet), 0,
@@ -206,6 +220,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
                 return;
             } else {
                 printf("Packet # %d sent\n",pack.seqno);
+                send_index++;
             }
         }
 
@@ -217,26 +232,53 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
         }
         else {
             // if acked packet is the base , remove it from window
+            cout << "ack num : " << ack_pack.seqno <<endl;
             if(ack_pack.seqno == packets[0].seqno + 1){
                 packets.erase(packets.begin());
+                if (cwnd<THRESHOLD){
+                    old_cwnd = cwnd;
+                    set_window_size(1);
+                }
+                else {
+                    old_cwnd = cwnd;
+                    set_window_size(2);
+                }
+                number_of_acks++;
+                send_index--;
             }
+            
         }
-        number_of_acks++;
-
         //TODO , simulate timeout given in file by N0,N1 ...etc
-        if (number_of_acks > max_packets_without_loss){
+
+       /*  if (number_of_acks > max_packets_without_loss){
+            old_cwnd = cwnd;
             set_window_size(4);
             number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
             max_packets_without_loss = number_of_packets_without_loss[0];
-        }
+        } */
 
         // check timeouts : default for now : 5 sec
-        if (find(random_packets_lost.begin,random_packets_lost.end, packets[0].seqno) && time (NULL) - packets[0].sent_time > 5){
+        if (find(random_packets_lost.begin(),random_packets_lost.end(), packets[0].seqno) != 
+                random_packets_lost.end() && time (NULL) - packets[0].sent_time > 1){
             set_window_size(3);
+            old_cwnd = cwnd;
             random_packets_lost.erase(random_packets_lost.begin());
             number_of_acks = 0;
+            send_index = 0;
         }
     }
+
+    
+    //sending empty info packet
+    info.packets_to_send = 0;
+    if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
+            (struct sockaddr *) &client_addr, socklen) == -1){
+        fprintf(stderr, "sending info failed .\n");
+    } else {
+        printf("last info sent , packets to sent : # %d sent\n",info.packets_to_send);
+    }
+
+
 }
 
 
