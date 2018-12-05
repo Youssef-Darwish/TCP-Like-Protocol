@@ -127,6 +127,7 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
                 if (packet.seqno == expected_seq_num){
                     puts("entered");
                     packets_to_write.push_back(packet);
+                    fputs(packet.data,file);
                     expected_seq_num++;
                 }
             }      
@@ -152,7 +153,6 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
             
             // check logic
             if (ack_pack.seqno != -1){
-                fputs(packet.data,file);
                 packets_to_write.erase(packets_to_write.begin());
             }
         }

@@ -40,7 +40,7 @@ struct data_packet {
     uint32_t seqno;
     time_t sent_time;
     /* Data */
-    char data[501]; /* Not always 500 bytes, can be less */
+    char data[500]; /* Not always 500 bytes, can be less */
 };
 
 struct info_packet {
@@ -104,7 +104,7 @@ void choose_random_packets() {
         random_packets_lost.push_back(pack_to_insert);
     }
     sort(random_packets_lost.begin(),random_packets_lost.end());
-    cout << "random packets : \n";
+    cout << "random packets size: \n";
     showlist(random_packets_lost);
 
 }
@@ -181,7 +181,6 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
     int send_index = 0;
     // get N0
     int max_packets_without_loss = number_of_packets_without_loss[0];
-    number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
 
     info_packet info;
     while(!packets.empty()){
@@ -191,8 +190,8 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
             info.packets_to_send = cwnd;
         }
         else {
-            cout << "old window :" << old_cwnd << "# acks" << number_of_acks <<endl;
-            info.packets_to_send = cwnd - send_index;
+            // cout << "old window :" << old_cwnd << "# acks" << number_of_acks <<endl;
+            info.packets_to_send = min(cwnd - send_index, packets.size() - send_index);
         }
 
         if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
@@ -249,21 +248,28 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
             
         }
         //TODO , simulate timeout given in file by N0,N1 ...etc
-
-       /*  if (number_of_acks > max_packets_without_loss){
+        if (number_of_acks == max_packets_without_loss){
+            cout << "hereeeee " << max_packets_without_loss <<endl;
             old_cwnd = cwnd;
             set_window_size(4);
+            number_of_acks = 0;
+            send_index = 0;
             number_of_packets_without_loss.erase(number_of_packets_without_loss.begin());
-            max_packets_without_loss = number_of_packets_without_loss[0];
-        } */
+            if(number_of_packets_without_loss.empty()){
+                max_packets_without_loss =  -1;
+            }
+            else {
+                max_packets_without_loss = number_of_packets_without_loss[0];
+            }
+            
+        }
 
         // check timeouts : default for now : 5 sec
         if (find(random_packets_lost.begin(),random_packets_lost.end(), packets[0].seqno) != 
                 random_packets_lost.end() && time (NULL) - packets[0].sent_time > 1){
-            set_window_size(3);
             old_cwnd = cwnd;
+            set_window_size(3);
             random_packets_lost.erase(random_packets_lost.begin());
-            number_of_acks = 0;
             send_index = 0;
         }
     }
