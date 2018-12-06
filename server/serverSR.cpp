@@ -113,7 +113,7 @@ void choose_random_packets() {
 
 void setup_lists(string file_name){
     char buffer[MAX_LEN];
-    FILE *file = fopen(file_name.c_str(), "r");
+    FILE *file = fopen(file_name.c_str(), "rb");
     if (file == NULL) {
         fprintf(stderr, "File not found\n");
         return;
@@ -186,6 +186,11 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
     // get N0
     int max_packets_without_loss = number_of_packets_without_loss[0];
 
+    long int start_time;
+    long int end_time;
+    gettimeofday(&tp,NULL);
+    start_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+
     info_packet info;
     while(!packets.empty()){
         //it should be cwnd - number of unacked
@@ -203,12 +208,12 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
                 fprintf(stderr, "sending info failed .\n");
                 return;
         } else {
-            printf("info sent , packets to sent : # %d sent\n",info.packets_to_send);
+            cout << " window size : " << cwnd << endl;
+            // printf("info sent , packets to sent : # %d sent\n",info.packets_to_send);
         }
 
 
         for (int i = 0; i < info.packets_to_send; i++) {
-            
             
             gettimeofday(&tp,NULL);
             long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
@@ -229,7 +234,6 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
                 send_index++;
             }
         }
-
         struct ack_packet ack_pack;
         if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
             0, (struct sockaddr *) &client_addr, &socklen) == -1)
@@ -292,6 +296,9 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
         printf("last info sent , packets to sent : # %d sent\n",info.packets_to_send);
     }
 
+    gettimeofday(&tp,NULL);
+    end_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "total time : " << end_time - start_time <<" ms" << endl;
 
 }
 
@@ -333,5 +340,6 @@ int main(int argc, char const *argv[])
 
     start(socket_fd);
 
+    
     return 0;
 }

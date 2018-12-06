@@ -90,7 +90,8 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
     printf("ack # rec : %d\n",ack_pack.seqno);
     puts("file name sent\n");
 
-    FILE *file = fopen(file_name, "w");
+
+    FILE *file = fopen(file_name, "wb");
     if (file == NULL) {
         fprintf(stderr, "File not found\n");
         return;

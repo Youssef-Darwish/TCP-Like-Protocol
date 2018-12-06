@@ -8,10 +8,12 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
+#include <string>
 
 #define MAX_LEN 500
 #define FIN -100
 int counter;
+using namespace std ;
 struct data_packet {
     /* Header */
     uint16_t cksum; /* Optional bonus part */
@@ -22,6 +24,7 @@ struct data_packet {
     char data[500]; /* Not always 500 bytes, can be less */
 };
 
+string result = "";
 struct ack_packet {
     /* Header */
     uint16_t cksum; /* Optional bonus part */
@@ -64,7 +67,7 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
     printf("ack # rec : %d\n",ack_pack.seqno);
 
     puts("file name sent\n");
-    FILE *file = fopen(file_name, "w");
+    FILE *file = fopen(file_name, "wb");
     if (file == NULL) {
         fprintf(stderr, "File not found\n");
         return;
@@ -94,10 +97,12 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
             else {
                 printf("Ack # %d sent\n",ack_pack.seqno);
             }
-
+            result += packet.data;
             fwrite(packet.data, sizeof(char), packet.len, file);
+
         }
     }    
+    
     puts("end");
 
 }
