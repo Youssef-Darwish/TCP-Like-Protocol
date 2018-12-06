@@ -63,7 +63,7 @@ struct data_packet get_packet(char data[]){
     packet.seqno = counter;
     counter++;
     packet.sent_time = time(NULL);
-    strcpy(packet.data, data);
+    memcpy(packet.data,data,MAX_LEN * sizeof(*data));
     packet.len = sizeof(packet.data);
     return packet;
 }
@@ -72,10 +72,12 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
 
     counter = 0;
     printf("intial counter : %d\n",counter);
+    cout << sizeof(*file_name) <<endl;
     struct data_packet packet = get_packet(file_name);
     char buff[MAX_LEN];
     socklen_t socklen = sizeof(addr_con);
     struct ack_packet ack_pack;
+    cout << "file  " << packet.data <<endl;
     if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
              (struct sockaddr *) &addr_con, socklen) == -1)
     {
@@ -83,6 +85,7 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
         return;
     }
 
+    
     if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(ack_pack),
             0, (struct sockaddr *) &addr_con, &socklen) == -1){
         fprintf(stderr, "receiving ACK failed.\n");

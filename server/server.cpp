@@ -55,7 +55,7 @@ struct data_packet get_packet(char data[]){
     packet.seqno = counter;
     counter++;
     packet.sent_time = time(NULL);
-    strcpy(packet.data, data);
+    memcpy(packet.data,data,MAX_LEN * sizeof(*data));
     return packet;
 }
 
@@ -69,7 +69,13 @@ void showlist(vector <int> vec)
         cout << vec[i]<<endl;
     }
 }
-
+bool is_found(int seqno){
+    for ( int i =0; i<random_packets_lost.size();i++){
+        if (random_packets_lost[i] == seqno)
+            return true;
+    }
+    return false;
+}
 
 void choose_random_packets(int size) {
 
@@ -83,7 +89,7 @@ void choose_random_packets(int size) {
     sort(random_packets_lost.begin(),random_packets_lost.end());
     // cout << "random packets size: \n";
     // cout << random_packets_lost.size() <<endl;
-    // showlist(random_packets_lost);
+    showlist(random_packets_lost);
 
 }
 
@@ -111,16 +117,17 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
         struct ack_packet ack_pack;
         packet = get_packet(buffer);
         packet.len = min(MAX_LEN, fsize);
-        
+
         int repeat = 1;
         while (repeat){
 
             //if not lost : send
-            if (random_packets_lost.size()!= 0 && find(random_packets_lost.begin(),random_packets_lost.end(),packet.seqno)
-                    == random_packets_lost.end()){
+            //cout << is_found(packet.seqno) <<endl;
+            if (random_packets_lost.size()!= 0 && is_found(packet.seqno)){
                 random_packets_lost.erase(random_packets_lost.begin());
             } else {  
                 cout << "in send" << endl;
+                //cout << packet.data << endl;
                 if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
                     (struct sockaddr *) &client_addr, socklen) == -1)
                     {
@@ -192,7 +199,7 @@ void start(int sock_fd){
             }
 
             struct timeval timeout;
-            timeout.tv_sec = 1;
+            timeout.tv_sec = 3;
             timeout.tv_usec = 0;
 
             setsockopt(child_socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char *) &timeout, sizeof (timeout));

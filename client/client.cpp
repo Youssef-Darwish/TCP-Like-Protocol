@@ -39,7 +39,7 @@ struct data_packet get_packet(char data[]){
     packet.seqno = counter;
     counter++;
     packet.sent_time = time(NULL);
-    strcpy(packet.data, data);
+    memcpy(packet.data,data,MAX_LEN * sizeof(*data));
     packet.len = sizeof(packet.data);
     return packet;
 }

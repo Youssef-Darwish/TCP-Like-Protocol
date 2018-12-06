@@ -20,6 +20,8 @@ using namespace std;
 
 #define MAX_LEN 5000
 #define THRESHOLD 8
+#define MAXWINDOW 30
+
 
 #ifndef min
 #define min(a, b)            (((a) < (b)) ? (a) : (b))
@@ -65,7 +67,7 @@ struct data_packet get_packet(char data[]){
     packet.seqno = counter;
     counter++;
     packet.sent_time = time(NULL);
-    strcpy(packet.data, data);
+    memcpy(packet.data,data,MAX_LEN * sizeof(*data));
     return packet;
 }
 
@@ -201,8 +203,9 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
         else {
             // cout << "old window :" << old_cwnd << "# acks" << number_of_acks <<endl;
             info.packets_to_send = min(cwnd - send_index, packets.size() - send_index);
+            
         }
-
+        info.packets_to_send = min(info.packets_to_send , MAXWINDOW);
         if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
             (struct sockaddr *) &client_addr, socklen) == -1){
                 fprintf(stderr, "sending info failed .\n");
