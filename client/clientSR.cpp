@@ -17,7 +17,7 @@
 
 
 
-#define MAX_LEN 500
+#define MAX_LEN 5000
 using namespace std;
 int counter;
 
@@ -28,7 +28,7 @@ struct data_packet {
     uint32_t seqno;
     time_t sent_time;
     /* Data */
-    char data[500]; /* Not always 500 bytes, can be less */
+    char data[5000]; /* Not always 500 bytes, can be less */
 };
 
 struct ack_packet {
@@ -101,6 +101,8 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
     info_packet info;
     int expected_seq_num = 0;
 
+    struct timeval timeout;
+    
     while (1){
 
         if(recvfrom(sock_fd, (void *) &info, sizeof(struct info_packet),
@@ -115,6 +117,9 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
         if (packets_to_write.size() == 0 && info.packets_to_send == 0)
             break;
 
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000;
+        setsockopt(sock_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
         for (int i =0; i < info.packets_to_send; i++){
             
             if(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
@@ -189,9 +194,8 @@ int main(int argc, char const *argv[])
         puts("error");
 
     struct timeval timeout;
-    timeout.tv_sec = 2;
+    timeout.tv_sec = 1;
     timeout.tv_usec = 0;
-
     setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
 
     struct sockaddr_in server_addr;

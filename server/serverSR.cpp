@@ -18,7 +18,7 @@
 
 using namespace std;
 
-#define MAX_LEN 500
+#define MAX_LEN 5000
 #define THRESHOLD 8
 
 #ifndef min
@@ -31,6 +31,8 @@ float loss_percent;
 int random_generator_seed;
 vector <int> number_of_packets_without_loss; //N0 N1 N2 ...
 vector <int> random_packets_lost; //all packets that will be lost
+struct timeval tp;
+
 
 void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t socklen);
 struct data_packet {
@@ -38,9 +40,9 @@ struct data_packet {
     uint16_t cksum; /* Optional bonus part */
     uint16_t len;
     uint32_t seqno;
-    time_t sent_time;
+    long int sent_time;
     /* Data */
-    char data[500]; /* Not always 500 bytes, can be less */
+    char data[5000]; /* Not always 500 bytes, can be less */
 };
 
 struct info_packet {
@@ -104,8 +106,8 @@ void choose_random_packets() {
         random_packets_lost.push_back(pack_to_insert);
     }
     sort(random_packets_lost.begin(),random_packets_lost.end());
-    cout << "random packets size: \n";
-    showlist(random_packets_lost);
+    // cout << "random packets size: \n";
+    // showlist(random_packets_lost);
 
 }
 
@@ -158,7 +160,9 @@ void start(int sock_fd){
 
     struct ack_packet ack_pack;
     ack_pack.seqno = packet.seqno + 1;
-    ack_pack.sent_time = time(NULL);
+    gettimeofday(&tp,NULL);
+    long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    ack_pack.sent_time = ms;
 
     char *file_name = packet.data;
 
@@ -205,7 +209,10 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
 
         for (int i = 0; i < info.packets_to_send; i++) {
             
-            packets[send_index].sent_time = time(NULL);
+            
+            gettimeofday(&tp,NULL);
+            long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+            packets[send_index].sent_time = ms;
             data_packet pack = packets[send_index];
             
             // If packet is in random lost packets, don't send
@@ -265,8 +272,10 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
         }
 
         // check timeouts : default for now : 5 sec
+        gettimeofday(&tp,NULL);
+        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         if (find(random_packets_lost.begin(),random_packets_lost.end(), packets[0].seqno) != 
-                random_packets_lost.end() && time (NULL) - packets[0].sent_time > 1){
+                random_packets_lost.end() && ms - packets[0].sent_time > 10){
             old_cwnd = cwnd;
             set_window_size(3);
             random_packets_lost.erase(random_packets_lost.begin());
