@@ -10,7 +10,7 @@
 #include <sys/time.h>
 
 #define MAX_LEN 500
-
+#define FIN -100
 int counter;
 struct data_packet {
     /* Header */
@@ -73,24 +73,31 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
     memset (packet.data,0,sizeof(packet.data));
     int flag = 0;
 
-    while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
-                0, (struct sockaddr *) &addr_con, &len) > 0){
-        puts("I am here");
-        ack_pack.seqno = packet.seqno + 1;
-        ack_pack.sent_time = time(NULL);
+    while (flag != FIN){
 
-        if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
-        (struct sockaddr *) &addr_con, len) == -1){
+        while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
+                    0, (struct sockaddr *) &addr_con, &len) > 0){
+            puts("I am here");
+            
+            ack_pack.seqno = packet.seqno + 1;
+            ack_pack.sent_time = time(NULL);
 
-            fprintf(stderr, "sending acK failed failed.\n");
-            return;
+            flag = packet.seqno;
+            if (flag ==FIN)
+                break;
+            if(sendto(sock_fd, (const void *) &ack_pack, sizeof(struct ack_packet), 0,
+            (struct sockaddr *) &addr_con, len) == -1){
+
+                fprintf(stderr, "sending acK failed failed.\n");
+                return;
+            }
+            else {
+                printf("Ack # %d sent\n",ack_pack.seqno);
+            }
+
+            fwrite(packet.data, sizeof(char), packet.len, file);
         }
-        else {
-            printf("Ack # %d sent\n",ack_pack.seqno);
-        }
-
-        fputs(packet.data,file);
-     }
+    }    
     puts("end");
 
 }
@@ -124,7 +131,7 @@ int main(int argc, char const *argv[])
         puts("error");
 
     struct timeval timeout;
-    timeout.tv_sec = 7;
+    timeout.tv_sec = 2;
     timeout.tv_usec = 0;
 
     setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));

@@ -128,7 +128,7 @@ void setup_lists(string file_name){
         struct data_packet packet;
         packet = get_packet(buffer);
         packet.len = min(MAX_LEN, fsize);
-        packet.data[packet.len] = '\0';
+        // packet.data[packet.len] = '\0';
 
         packets.push_back(packet);
 
@@ -271,7 +271,6 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
             
         }
 
-        // check timeouts : default for now : 5 sec
         gettimeofday(&tp,NULL);
         long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         if (find(random_packets_lost.begin(),random_packets_lost.end(), packets[0].seqno) != 

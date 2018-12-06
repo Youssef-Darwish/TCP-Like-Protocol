@@ -8,15 +8,27 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
-#include <fcntl.h>
+#include <list>
+#include <iostream>
+#include <fstream>
+#include <math.h>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
 
 #define MAX_LEN 500
+#define FIN -100
 
 #ifndef min
 #define min(a, b)            (((a) < (b)) ? (a) : (b))
 #endif
 
 int counter;
+vector <int> random_packets_lost; //all packets that will be lost
+int random_generator_seed;
+float loss_percent;
+
 struct data_packet {
     /* Header */
     uint16_t cksum; /* Optional bonus part */
@@ -50,6 +62,30 @@ struct data_packet get_packet(char data[]){
 int get_timeout() {
     return 5;
 }
+void showlist(vector <int> vec)
+{
+
+    for (int i=0;i<vec.size();i++){
+        cout << vec[i]<<endl;
+    }
+}
+
+
+void choose_random_packets(int size) {
+
+    int number_of_losses = ceil(size * loss_percent);
+    int pack_to_insert;
+    srand(random_generator_seed+1);
+    for(int i = 0; i < number_of_losses; i++){
+        pack_to_insert = rand() % size;
+        random_packets_lost.push_back(pack_to_insert);
+    }
+    sort(random_packets_lost.begin(),random_packets_lost.end());
+    // cout << "random packets size: \n";
+    // cout << random_packets_lost.size() <<endl;
+    // showlist(random_packets_lost);
+
+}
 
 void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd){
     char buffer[MAX_LEN];
@@ -67,34 +103,40 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
     fseek(file, 0L, SEEK_SET);
     memset(&buffer, 0, sizeof(buffer));
 
+    int packets_number = (fsize / MAX_LEN) + 1;
+    choose_random_packets(packets_number);
+
     while (fsize && fread(buffer, sizeof(char), min(MAX_LEN, fsize), file) > 0){
         struct data_packet packet;
         struct ack_packet ack_pack;
-        ack_pack.seqno = -1;
         packet = get_packet(buffer);
         packet.len = min(MAX_LEN, fsize);
-        packet.data[packet.len] = '\0';
-
+        
         int repeat = 1;
         while (repeat){
-            if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
+
+            //if not lost : send
+            if (random_packets_lost.size()!= 0 && find(random_packets_lost.begin(),random_packets_lost.end(),packet.seqno)
+                    == random_packets_lost.end()){
+                random_packets_lost.erase(random_packets_lost.begin());
+            } else {  
+                cout << "in send" << endl;
+                if(sendto(sock_fd, (const void *) &packet, sizeof(struct data_packet), 0,
                     (struct sockaddr *) &client_addr, socklen) == -1)
-                {
-                    fprintf(stderr, "sending packet failed.\n");
-                }
+                    {
+                        fprintf(stderr, "sending packet failed.\n");
+                    }   
+            }
             puts("waiting for ack");
 
             if(recvfrom(sock_fd, (void *) &ack_pack, sizeof(struct ack_packet),
                     0, (struct sockaddr *) &client_addr, &socklen) == -1)
                 {
                     fprintf(stderr, "receiving ACK failed.\n");
-                }
-
-            if (ack_pack.seqno == -1){
-                puts("Packet is lost.. Resending");
-                continue;
-            } else
-                repeat = 0;
+                    puts("Packet is lost.. Resending");
+                    continue;
+                } else 
+                    repeat = 0;
 
             printf("packet # : %d\n", packet.seqno);
             printf("ack # rec : %d\n", ack_pack.seqno);
@@ -106,6 +148,16 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
         fsize -= min(fsize, MAX_LEN);
         memset(&buffer, 0, sizeof(buffer));
     }
+
+    data_packet pack;
+    pack.seqno = FIN;
+    if(sendto(sock_fd, (const void *) &pack, sizeof(struct data_packet), 0,
+                    (struct sockaddr *) &client_addr, socklen) == -1){
+        
+        fprintf(stderr, "sending packet failed.\n");
+    }
+    cout << "last packet sent" <<endl;
+
 }
 
 void start(int sock_fd){
@@ -140,7 +192,7 @@ void start(int sock_fd){
             }
 
             struct timeval timeout;
-            timeout.tv_sec = 10;
+            timeout.tv_sec = 1;
             timeout.tv_usec = 0;
 
             setsockopt(child_socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char *) &timeout, sizeof (timeout));
@@ -163,14 +215,11 @@ int main(int argc, char const *argv[])
 
     int server_port_no;
     int window_size;
-    int random_generator_seed;
-    float probability_of_data_loss;
-
 
     fscanf(file, "%d", &server_port_no);
     fscanf(file, "%d", &window_size);
     fscanf(file, "%d", &random_generator_seed);
-    fscanf(file, "%f", &probability_of_data_loss);
+    fscanf(file, "%f", &loss_percent);
 
     //printf("%s %d %d %f", server_port_no, window_size, random_generator_seed, probability_of_data_loss);
 
