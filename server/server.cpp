@@ -17,7 +17,7 @@
 
 using namespace std;
 
-#define MAX_LEN 500
+#define MAX_LEN 5000
 #define FIN -100
 
 #ifndef min
@@ -28,6 +28,7 @@ int counter;
 vector <int> random_packets_lost; //all packets that will be lost
 int random_generator_seed;
 float loss_percent;
+struct timeval tp;
 
 struct data_packet {
     /* Header */
@@ -36,7 +37,7 @@ struct data_packet {
     uint32_t seqno;
     time_t sent_time;
     /* Data */
-    char data[501]; /* Not always 500 bytes, can be less */
+    char data[5001]; /* Not always 500 bytes, can be less */
 };
 
 
@@ -112,6 +113,9 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
     int packets_number = (fsize / MAX_LEN) + 1;
     choose_random_packets(packets_number);
 
+    gettimeofday(&tp,NULL);
+    long int start_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+
     while (fsize && fread(buffer, sizeof(char), min(MAX_LEN, fsize), file) > 0){
         struct data_packet packet;
         struct ack_packet ack_pack;
@@ -164,6 +168,9 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
         fprintf(stderr, "sending packet failed.\n");
     }
     cout << "last packet sent" <<endl;
+    gettimeofday(&tp,NULL);
+    long int end_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "sending time : " << end_time - start_time << endl;
 
 }
 
@@ -199,8 +206,8 @@ void start(int sock_fd){
             }
 
             struct timeval timeout;
-            timeout.tv_sec = 3;
-            timeout.tv_usec = 0;
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 10000;
 
             setsockopt(child_socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char *) &timeout, sizeof (timeout));
             //int flags = fcntl(child_socket_fd, F_GETFL);

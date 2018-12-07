@@ -10,7 +10,7 @@
 #include <sys/time.h>
 #include <string>
 
-#define MAX_LEN 500
+#define MAX_LEN 5000
 #define FIN -100
 int counter;
 using namespace std ;
@@ -21,7 +21,7 @@ struct data_packet {
     uint32_t seqno;
     time_t sent_time;
     /* Data */
-    char data[500]; /* Not always 500 bytes, can be less */
+    char data[5000]; /* Not always 500 bytes, can be less */
 };
 
 string result = "";
@@ -80,8 +80,7 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
 
         while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                     0, (struct sockaddr *) &addr_con, &len) > 0){
-            puts("I am here");
-            
+            // puts("I am here");
             ack_pack.seqno = packet.seqno + 1;
             ack_pack.sent_time = time(NULL);
 
@@ -136,8 +135,8 @@ int main(int argc, char const *argv[])
         puts("error");
 
     struct timeval timeout;
-    timeout.tv_sec = 2;
-    timeout.tv_usec = 0;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 10000;
 
     setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
 

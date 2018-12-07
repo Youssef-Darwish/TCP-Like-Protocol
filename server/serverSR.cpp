@@ -20,7 +20,7 @@ using namespace std;
 
 #define MAX_LEN 5000
 #define THRESHOLD 8
-#define MAXWINDOW 30
+#define MAXWINDOW 20
 
 
 #ifndef min
@@ -76,10 +76,10 @@ struct data_packet get_packet(char data[]){
 void set_window_size(int state){
     switch (state){
         case 1:
-            cwnd *= 2;
+            cwnd = min(cwnd * 2,MAXWINDOW);
             break;
         case 2:
-            cwnd++;
+            cwnd = min(cwnd + 1,MAXWINDOW);
             break;
         case 3:
             cwnd = 1;
@@ -205,7 +205,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
             info.packets_to_send = min(cwnd - send_index, packets.size() - send_index);
             
         }
-        info.packets_to_send = min(info.packets_to_send , MAXWINDOW);
+        
         if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
             (struct sockaddr *) &client_addr, socklen) == -1){
                 fprintf(stderr, "sending info failed .\n");
