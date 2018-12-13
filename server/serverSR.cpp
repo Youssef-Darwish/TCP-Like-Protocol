@@ -19,7 +19,7 @@
 using namespace std;
 
 #define MAX_LEN 5000
-#define THRESHOLD 8
+// #define THRESHOLD 8
 #define MAXWINDOW 20
 
 
@@ -29,6 +29,7 @@ using namespace std;
 
 int counter; //used to assign sequence number
 int cwnd; //window size
+int THRESHOLD = 8;
 float loss_percent;
 int random_generator_seed;
 vector <int> number_of_packets_without_loss; //N0 N1 N2 ...
@@ -82,9 +83,11 @@ void set_window_size(int state){
             cwnd = min(cwnd + 1,MAXWINDOW);
             break;
         case 3:
+            THRESHOLD = ceil(cwnd/2);
             cwnd = 1;
             break;
         case 4:
+            THRESHOLD = ceil(cwnd/2);
             cwnd /= 2;
             break;
     }
@@ -187,7 +190,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
     int send_index = 0;
     // get N0
     int max_packets_without_loss = number_of_packets_without_loss.empty() ? -1 : number_of_packets_without_loss[0];
-
+    
     long int start_time;
     long int end_time;
     gettimeofday(&tp,NULL);
@@ -196,13 +199,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
     info_packet info;
     while(!packets.empty()){
 
-       /*  if (cwnd == old_cwnd){
-            info.packets_to_send = cwnd;
-        }
-        else {
-            // cout << "old window :" << old_cwnd << "# acks" << number_of_acks <<endl;
-            
-        } */
+
         info.packets_to_send = min(cwnd - send_index, packets.size() - send_index);
 
         if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
@@ -213,8 +210,6 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
             cout << " window size : " << cwnd << endl;
             // printf("info sent , packets to sent : # %d sent\n",info.packets_to_send);
         }
-
-
         for (int i = 0; i < info.packets_to_send; i++) {
             
             gettimeofday(&tp,NULL);

@@ -122,7 +122,7 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
             break;
 
         timeout.tv_sec = 0;
-        timeout.tv_usec = 100000;
+        timeout.tv_usec = 10000;
         setsockopt(sock_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
         for (int i =0; i < info.packets_to_send; i++){
             
