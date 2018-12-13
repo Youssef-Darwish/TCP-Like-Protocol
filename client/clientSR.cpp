@@ -122,7 +122,7 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
             break;
 
         timeout.tv_sec = 0;
-        timeout.tv_usec = 10000;
+        timeout.tv_usec = 100000;
         setsockopt(sock_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
         for (int i =0; i < info.packets_to_send; i++){
             
@@ -161,7 +161,6 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
         else {
             printf("Ack # %d sent\n",ack_pack.seqno);
             
-            // check logic
             if (ack_pack.seqno != -1){
                 packets_to_write.erase(packets_to_write.begin());
             }

@@ -136,7 +136,7 @@ int main(int argc, char const *argv[])
 
     struct timeval timeout;
     timeout.tv_sec = 0;
-    timeout.tv_usec = 10000;
+    timeout.tv_usec = 100000;
 
     setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
 

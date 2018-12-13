@@ -108,8 +108,8 @@ void choose_random_packets() {
         random_packets_lost.push_back(pack_to_insert);
     }
     sort(random_packets_lost.begin(),random_packets_lost.end());
-    // cout << "random packets size: \n";
-    // showlist(random_packets_lost);
+    cout << "random packets size: \n";
+    showlist(random_packets_lost);
 
 }
 
@@ -186,7 +186,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
     int old_cwnd = cwnd;
     int send_index = 0;
     // get N0
-    int max_packets_without_loss = number_of_packets_without_loss[0];
+    int max_packets_without_loss = number_of_packets_without_loss.empty() ? -1 : number_of_packets_without_loss[0];
 
     long int start_time;
     long int end_time;
@@ -195,17 +195,16 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
 
     info_packet info;
     while(!packets.empty()){
-        //it should be cwnd - number of unacked
 
-        if (cwnd == old_cwnd){
+       /*  if (cwnd == old_cwnd){
             info.packets_to_send = cwnd;
         }
         else {
             // cout << "old window :" << old_cwnd << "# acks" << number_of_acks <<endl;
-            info.packets_to_send = min(cwnd - send_index, packets.size() - send_index);
             
-        }
-        
+        } */
+        info.packets_to_send = min(cwnd - send_index, packets.size() - send_index);
+
         if(sendto(sock_fd, (const void *) &info, sizeof(struct info_packet), 0,
             (struct sockaddr *) &client_addr, socklen) == -1){
                 fprintf(stderr, "sending info failed .\n");
@@ -226,6 +225,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
             // If packet is in random lost packets, don't send
             
             if(find(random_packets_lost.begin(),random_packets_lost.end(), pack.seqno)!=random_packets_lost.end()){
+                send_index++;
                 continue;
             }
             if(sendto(sock_fd, (const void *) &pack, sizeof(struct data_packet), 0,
@@ -281,7 +281,7 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
         gettimeofday(&tp,NULL);
         long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         if (find(random_packets_lost.begin(),random_packets_lost.end(), packets[0].seqno) != 
-                random_packets_lost.end() && ms - packets[0].sent_time > 10){
+                random_packets_lost.end() && ms - packets[0].sent_time > 1){
             old_cwnd = cwnd;
             set_window_size(3);
             random_packets_lost.erase(random_packets_lost.begin());

@@ -207,7 +207,7 @@ void start(int sock_fd){
 
             struct timeval timeout;
             timeout.tv_sec = 0;
-            timeout.tv_usec = 10000;
+            timeout.tv_usec = 100000;
 
             setsockopt(child_socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char *) &timeout, sizeof (timeout));
             //int flags = fcntl(child_socket_fd, F_GETFL);
