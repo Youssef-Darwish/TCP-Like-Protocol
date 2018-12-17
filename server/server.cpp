@@ -125,8 +125,6 @@ void stop_and_wait(char file_name[], struct sockaddr_in client_addr, int sock_fd
         int repeat = 1;
         while (repeat){
 
-            //if not lost : send
-            //cout << is_found(packet.seqno) <<endl;
             if (random_packets_lost.size()!= 0 && is_found(packet.seqno)){
                 random_packets_lost.erase(random_packets_lost.begin());
             } else {  
@@ -207,11 +205,9 @@ void start(int sock_fd){
 
             struct timeval timeout;
             timeout.tv_sec = 0;
-            timeout.tv_usec = 100000;
+            timeout.tv_usec = 50000;
 
             setsockopt(child_socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char *) &timeout, sizeof (timeout));
-            //int flags = fcntl(child_socket_fd, F_GETFL);
-            //fcntl(child_socket_fd, F_SETFL, flags | O_NONBLOCK);
 
             stop_and_wait(file_name, client_addr, child_socket_fd);
         }
@@ -235,7 +231,6 @@ int main(int argc, char const *argv[])
     fscanf(file, "%d", &random_generator_seed);
     fscanf(file, "%f", &loss_percent);
 
-    //printf("%s %d %d %f", server_port_no, window_size, random_generator_seed, probability_of_data_loss);
 
     int socket_fd = socket(AF_INET,SOCK_DGRAM, 0);
     if (socket_fd <0)

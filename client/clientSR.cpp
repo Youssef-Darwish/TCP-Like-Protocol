@@ -42,21 +42,9 @@ struct ack_packet {
 struct info_packet {
     int packets_to_send;
 };
+
 vector <data_packet> packets_to_write;
 vector <data_packet> packets_buffer;
-/*
-send file name
-receive ack
-while true:
-    receive info packet
-    receive n packets
-    store acks
-    send ack
-    // empty ack list after timeout
-
-*/
-
-
 struct data_packet get_packet(char data[]){
 
     struct data_packet packet;
@@ -129,15 +117,12 @@ void selective_repeat(char file_name[], int sock_fd, struct sockaddr_in addr_con
             if(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                     0, (struct sockaddr *) &addr_con, &socklen) != -1){
 
-                // puts("I am here");
                 cout << "seq received : " << packet.seqno <<endl;
                 //checking ack order:
                 cout << "expected : " << expected_seq_num <<endl;
                 if (packet.seqno == expected_seq_num){
-                    puts("entered");
                     packets_to_write.push_back(packet);
                     fwrite(packet.data, sizeof(char), packet.len, file);
-                    // fputs(packet.data,file);
                     expected_seq_num++;
                 }
             }      
@@ -190,8 +175,6 @@ int main(int argc, char const *argv[])
     fscanf(file, "%d", &client_port_no);
     fscanf(file, "%s", file_name);
     fscanf(file, "%d", &window_size);
-
-    //printf("%s %s %s %s %d", ip_addr, server_port_no, client_port_no, file_name, window_size);
 
     int socket_fd = socket(AF_INET,SOCK_DGRAM, 0);
     if (socket_fd <0)

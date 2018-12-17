@@ -80,7 +80,6 @@ void stop_and_wait(char file_name[], int sock_fd, struct sockaddr_in addr_con){
 
         while(recvfrom(sock_fd, (void *) &packet, sizeof(struct data_packet),
                     0, (struct sockaddr *) &addr_con, &len) > 0){
-            // puts("I am here");
             ack_pack.seqno = packet.seqno + 1;
             ack_pack.sent_time = time(NULL);
 
@@ -128,15 +127,13 @@ int main(int argc, char const *argv[])
     fscanf(file, "%s", file_name);
     fscanf(file, "%d", &window_size);
 
-    //printf("%s %s %s %s %d", ip_addr, server_port_no, client_port_no, file_name, window_size);
-
     int socket_fd = socket(AF_INET,SOCK_DGRAM, 0);
     if (socket_fd <0)
         puts("error");
 
     struct timeval timeout;
     timeout.tv_sec = 0;
-    timeout.tv_usec = 100000;
+    timeout.tv_usec = 50000;
 
     setsockopt(socket_fd, SOL_SOCKET,SO_RCVTIMEO, (char * ) &timeout,sizeof (timeout));
 

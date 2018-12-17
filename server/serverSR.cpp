@@ -19,7 +19,6 @@
 using namespace std;
 
 #define MAX_LEN 5000
-// #define THRESHOLD 8
 #define MAXWINDOW 20
 
 
@@ -142,7 +141,7 @@ void setup_lists(string file_name){
     }
 
     choose_random_packets();
-    file_name = "threeDupAcks.txt";     // TODO : read_it from input file
+    file_name = "threeDupAcks.txt";     
     fstream input(file_name.c_str());
     int num_of_packets;
     while(input >> num_of_packets){
@@ -208,7 +207,6 @@ void selective_repeat(struct sockaddr_in client_addr, int sock_fd, socklen_t soc
                 return;
         } else {
             cout << " window size : " << cwnd << endl;
-            // printf("info sent , packets to sent : # %d sent\n",info.packets_to_send);
         }
         for (int i = 0; i < info.packets_to_send; i++) {
             
@@ -319,8 +317,6 @@ int main(int argc, char const *argv[])
     struct timeval timeout;
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
-
-    //printf("%s %d %d %f", server_port_no, cwnd, random_generator_seed, loss_percent);
 
     int socket_fd = socket(AF_INET,SOCK_DGRAM, 0);
     if (socket_fd <0)
